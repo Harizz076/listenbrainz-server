@@ -13,7 +13,7 @@ from psycopg2.errors import UntranslatableCharacter
 from psycopg2.extras import execute_values
 from sqlalchemy import text
 
-from listenbrainz.db import timescale
+from listenbrainz.db import listens as listens_db, timescale
 from listenbrainz.dumps import DUMP_DEFAULT_THREAD_COUNT
 from listenbrainz.dumps.exceptions import SchemaMismatchException
 from listenbrainz.listen import Listen
@@ -159,21 +159,30 @@ class TimescaleListenStore:
 
     def insert(self, listens):
         """
-            Insert a batch of listens. Returns a list of (listened_at, track_name, user_name, user_id) that indicates
-            which rows were inserted into the DB. If the row is not listed in the return values, it was a duplicate.
+            Insert a batch of listens. Returns a list of (listened_at, user_id, recording_msid)
+            identifying rows inserted into Timescale. Rows absent from the result were duplicates.
         """
 
+        if not listens:
+            return []
+
         submit = []
+        created = datetime.now(tz=timezone.utc)
         for listen in listens:
-            submit.append(listen.to_timescale())
+            listened_at, user_id, recording_msid, data = listen.to_timescale()
+            submit.append((listened_at, created, user_id, recording_msid, data))
+
+        # Write the incoming batch before touching Timescale. Both stores ignore duplicates,
+        # so a retry after a Timescale failure preserves the first successful insert.
+        listens_db.insert(submit)
 
         query = """
             WITH inserted_listens AS (
-                INSERT INTO listen (listened_at, user_id, recording_msid, data)
+                INSERT INTO listen (listened_at, created, user_id, recording_msid, data)
                      VALUES %s
                 ON CONFLICT (listened_at, user_id, recording_msid)
                  DO NOTHING
-                  RETURNING listened_at, user_id, recording_msid
+                  RETURNING listened_at, created, user_id, recording_msid, data
             ), metadata AS (
                 INSERT INTO listen_user_metadata AS lum (user_id, count, min_listened_at, max_listened_at, created)
                      SELECT user_id, count(*), min(listened_at), max(listened_at), NOW()
@@ -185,26 +194,44 @@ class TimescaleListenStore:
                           , min_listened_at = least(lum.min_listened_at, excluded.min_listened_at)
                           , max_listened_at = greatest(lum.max_listened_at, excluded.max_listened_at)
                           , created = excluded.created
-            ) SELECT * FROM inserted_listens
+            )
+            SELECT listened_at, created, user_id, recording_msid, data::text
+              FROM inserted_listens
         """
 
-        inserted_rows = []
+        source_rows = {}
         conn = timescale.engine.raw_connection()
-        with conn.cursor() as curs:
+        try:
+            # this handler drops the batch instead of retrying it, only acceptable for an
+            # encoding error from timescale itself, so keep it off the partitioned write above
             try:
-                execute_values(curs, query, submit, template=None)
-                while True:
-                    result = curs.fetchone()
-                    if not result:
-                        break
-                    inserted_rows.append((result[0], result[1], result[2]))
+                with conn.cursor() as curs:
+                    results = execute_values(
+                        curs,
+                        query,
+                        submit,
+                        template="(%s::timestamptz, %s::timestamptz, %s::integer, %s::uuid, %s::jsonb)",
+                        fetch=True,
+                    )
             except UntranslatableCharacter:
                 conn.rollback()
                 return
 
-        conn.commit()
+            for result in results:
+                listened_at = result[0]
+                user_id = result[2]
+                recording_msid = result[3]
+                source_rows[(listened_at, user_id, recording_msid)] = result
 
-        return inserted_rows
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+        return [(listened_at, user_id, recording_msid)
+                for listened_at, _, user_id, recording_msid, _ in source_rows.values()]
 
     def fetch_listens(self, user: Dict, from_ts: datetime = None, to_ts: datetime = None, limit: int = DEFAULT_LISTENS_PER_FETCH):
         """ The timestamps are stored as UTC in the postgres datebase while on retrieving
@@ -702,35 +729,12 @@ class TimescaleListenStore:
         return data
 
     def delete(self, user_id, created=None):
-        """ Delete all listens for user with specified user ID.
-
-        Note: this method tries to delete the user 5 times before giving up.
-
-        Args:
-            user_id: the listenbrainz row id of the user
-            created: delete listens created before this timestamp
-
-        Raises: Exception if unable to delete the user in 5 retries
-        """
+        """Delete history only in the listens DB, retaining Timescale listens and metadata."""
+        # Keep the existing listenstore interface during migration; deletion now uses the
+        # listens DB while reads and ingestion still use Timescale.
         if created is None:
             created = datetime.now(tz=timezone.utc)
-        query1 = """
-            UPDATE listen_user_metadata 
-               SET count = 0
-                 , min_listened_at = NULL
-                 , max_listened_at = NULL
-             WHERE user_id = :user_id
-        """
-        query2 = """DELETE FROM listen WHERE user_id = :user_id AND created <= :created"""
-        query3 = """INSERT INTO deleted_user_listen_history (user_id, max_created) VALUES (:user_id, :created)"""
-        try:
-            ts_conn.execute(sqlalchemy.text(query1), {"user_id": user_id})
-            ts_conn.execute(sqlalchemy.text(query2), {"user_id": user_id, "created": created})
-            ts_conn.execute(sqlalchemy.text(query3), {"user_id": user_id, "created": created})
-            ts_conn.commit()
-        except psycopg2.OperationalError as e:
-            self.log.error("Cannot delete listens for user: %s" % str(e))
-            raise
+        listens_db.delete_user(user_id, created)
 
     def delete_listen(self, listened_at: datetime, user_id: int, recording_msid: str):
         """ Delete a particular listen for user with specified MusicBrainz ID.
@@ -739,28 +743,28 @@ class TimescaleListenStore:
 
             These details are stored in a separate table for some time because the listen is not deleted
             immediately. Every hour a cron job runs and uses these details to delete the actual listens.
-            After the listens are deleted, these details are also removed from storage.
+            The request and its result are retained in the listens database until dump cleanup.
 
         Args:
             listened_at: The timestamp of the listen
             user_id: the listenbrainz row id of the user
             recording_msid: the MessyBrainz ID of the recording
-        Raises: TimescaleListenStoreException if unable to delete the listen
+        Raises: ListenStoreException if unable to queue the deletion in the listens DB
         """
         query = """
             INSERT INTO listen_delete_metadata(user_id, listened_at, recording_msid) 
                  VALUES (:user_id, :listened_at, :recording_msid)
         """
         try:
-            ts_conn.execute(
-                sqlalchemy.text(query),
-                {"listened_at": listened_at, "user_id": user_id, "recording_msid": recording_msid}
-            )
-            ts_conn.commit()
-        except psycopg2.OperationalError as e:
+            with listens_db.engine.begin() as connection:
+                connection.execute(
+                    sqlalchemy.text(query),
+                    {"listened_at": listened_at, "user_id": user_id, "recording_msid": recording_msid}
+                )
+        except (psycopg2.OperationalError, sqlalchemy.exc.OperationalError) as e:
             self.log.error("Cannot delete listen for user: %s" % str(e))
-            raise TimescaleListenStoreException()
+            raise ListenStoreException("Cannot queue listen deletion in the listens database") from e
 
 
-class TimescaleListenStoreException(Exception):
+class ListenStoreException(Exception):
     pass

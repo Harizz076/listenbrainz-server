@@ -947,7 +947,11 @@ const getPageProps = async (): Promise<{
         },
       },
       userPreferences,
-      musicbrainzGenres: await getOrFetchMBGenres(),
+      // Genre metadata is an optional enhancement. Do not delay mounting the
+      // entire application on an external MusicBrainz request: it may be
+      // unavailable (notably in local development) and previously left the
+      // page blank while the request was pending.
+      musicbrainzGenres: [],
       recordingFeedbackManager: new RecordingFeedbackManager(
         apiService,
         current_user
@@ -970,6 +974,9 @@ const getPageProps = async (): Promise<{
       { toastId: "page-load-error" }
     );
   }
+
+  // Warm the browser cache after startup without blocking the first render.
+  getOrFetchMBGenres().catch(() => undefined);
   return {
     domContainer,
     reactProps,

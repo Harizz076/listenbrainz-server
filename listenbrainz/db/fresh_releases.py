@@ -44,6 +44,36 @@ def get_sitewide_fresh_releases(
     to_date = pivot_release_date + \
         timedelta(days=release_date_window_days) if future else pivot_release_date
 
+    # Local developer installations intentionally do not run a full
+    # MusicBrainz database. Reuse the generated Fresh Releases documents for
+    # the public view in that setup so the All tab remains useful while
+    # developing the page. Production always has an MB database and continues
+    # through the authoritative query below.
+    if not current_app.config["MB_DATABASE_URI"] and current_app.debug:
+        releases_by_group = {}
+        for document in couchdb.fetch_all_data("fresh_releases"):
+            for release in document.get("releases", []):
+                try:
+                    fresh_release = FreshRelease(**release)
+                except (TypeError, ValueError):
+                    current_app.logger.warning(
+                        "Skipping invalid cached fresh release in local fallback"
+                    )
+                    continue
+
+                if from_date <= fresh_release.release_date <= to_date:
+                    releases_by_group[str(fresh_release.release_group_mbid)] = fresh_release
+
+        fresh_releases = list(releases_by_group.values())
+        fresh_releases.sort(
+            key=lambda release: (
+                getattr(release, sort),
+                release.release_date,
+                release.release_name,
+            )
+        )
+        return fresh_releases, len(fresh_releases)
+
     sort_order = ["release_date", "artist_credit_name", "release_name"]
     sort_order = sort_order[sort_order.index(
         sort):] + sort_order[:sort_order.index(sort)]

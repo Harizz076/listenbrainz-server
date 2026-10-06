@@ -127,6 +127,64 @@
       opacity: 1;
     }
 
+    // Date inputs are rendered by the browser rather than Bootstrap. Declare
+    // their colour scheme explicitly so their segmented fields and calendar
+    // picker do not retain a light-control appearance in dark mode.
+    input[type="date"],
+    input[type="datetime-local"] {
+      // Chromium's dark native date editor omits leading zeroes and renders
+      // visibly separated segments. Its light formatter is stable; retain it
+      // for layout while the explicit colours below keep the control dark.
+      color-scheme: light;
+      border-color: var(--bs-form-control-border-color);
+    }
+
+    input[type="date"]::-webkit-datetime-edit,
+    input[type="datetime-local"]::-webkit-datetime-edit {
+      color: var(--lb-text);
+    }
+
+    input[type="date"]::-webkit-datetime-edit-year-field,
+    input[type="date"]::-webkit-datetime-edit-month-field,
+    input[type="date"]::-webkit-datetime-edit-day-field,
+    input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+    input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+    input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+    input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+    input[type="datetime-local"]::-webkit-datetime-edit-minute-field {
+      background-color: transparent;
+      color: var(--lb-text);
+      -webkit-text-fill-color: var(--lb-text);
+    }
+
+    input[type="date"]::-webkit-datetime-edit-text,
+    input[type="datetime-local"]::-webkit-datetime-edit-text {
+      color: var(--lb-text-muted);
+    }
+
+    // Chromium paints the currently edited date segment with its own text
+    // colour. Without these overrides the leading zero can become black on
+    // our dark control background.
+    input[type="date"]::-webkit-datetime-edit-year-field:focus,
+    input[type="date"]::-webkit-datetime-edit-month-field:focus,
+    input[type="date"]::-webkit-datetime-edit-day-field:focus,
+    input[type="datetime-local"]::-webkit-datetime-edit-year-field:focus,
+    input[type="datetime-local"]::-webkit-datetime-edit-month-field:focus,
+    input[type="datetime-local"]::-webkit-datetime-edit-day-field:focus,
+    input[type="datetime-local"]::-webkit-datetime-edit-hour-field:focus,
+    input[type="datetime-local"]::-webkit-datetime-edit-minute-field:focus {
+      background-color: #4a4662;
+      color: #fff;
+      -webkit-text-fill-color: #fff;
+      outline: 0;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+      filter: invert(1) grayscale(1);
+      opacity: 0.8;
+    }
+
     // Firefox renders an opened native select menu separately from the
     // .form-select element. Keep its dark surface, but retain the familiar
     // brand-pink selected row used by the light theme.
@@ -151,6 +209,76 @@
 
     .btn-close {
       filter: invert(1) grayscale(1) brightness(2);
+    }
+
+    // Bootstrap's info outline uses a light-theme blue that is too subdued on
+    // this surface. It is the refresh control on the feed, among other shared
+    // actions, so define the whole interaction state from the theme palette.
+    .btn-outline-info {
+      --bs-btn-color: var(--lb-accent);
+      --bs-btn-border-color: #635eb0;
+      --bs-btn-hover-color: #171717;
+      --bs-btn-hover-bg: #afa6df;
+      --bs-btn-hover-border-color: #afa6df;
+      --bs-btn-active-color: #171717;
+      --bs-btn-active-bg: #afa6df;
+      --bs-btn-active-border-color: #afa6df;
+      --bs-btn-disabled-color: #8f89a0;
+      --bs-btn-disabled-border-color: #5a5566;
+    }
+
+    // Some legacy button rules write the foreground directly instead of
+    // consuming Bootstrap's custom properties. Keep this shared action style
+    // readable wherever it is used.
+    .btn.btn-outline-info {
+      background-color: transparent;
+      border-color: #635eb0 !important;
+      color: var(--lb-accent) !important;
+
+      &:hover,
+      &:focus-visible,
+      &:active {
+        background-color: #afa6df !important;
+        border-color: #afa6df !important;
+        color: #171717 !important;
+      }
+
+      &:disabled {
+        border-color: #5a5566 !important;
+        color: #8f89a0 !important;
+      }
+    }
+
+    .btn-link {
+      color: var(--lb-accent) !important;
+
+      &:hover,
+      &:focus-visible {
+        color: var(--lb-accent-hover) !important;
+      }
+    }
+
+    // Tables declare their own light-theme custom properties, so setting
+    // those values only on html is not enough. This covers empty states as
+    // well as populated striped tables.
+    .table {
+      --bs-table-color: var(--lb-text);
+      --bs-table-bg: var(--lb-surface-raised);
+      --bs-table-border-color: var(--lb-border);
+      --bs-table-striped-color: var(--lb-text);
+      --bs-table-striped-bg: rgb(255 255 255 / 4%);
+      --bs-table-hover-color: #fff;
+      --bs-table-hover-bg: rgb(220 214 240 / 9%);
+    }
+
+    // This shared heading appears on the feeds and several entity views. Its
+    // original rule is a light-theme literal, so both pieces need retokening.
+    .header-with-line {
+      color: var(--lb-text);
+
+      &::after {
+        border-color: var(--lb-border);
+      }
     }
 
     .nav-tabs,
@@ -202,6 +330,19 @@
 
     .footer {
       border-top-color: var(--lb-border);
+    }
+
+    // The base sidebar paints each section with a light gradient. Reset the
+    // full background, rather than only its colour, so every generic sidebar
+    // receives a uniform dark panel while preserving its purple header.
+    .sidebar > *:not(.sidebar-header) {
+      background: var(--lb-surface-raised);
+      color: var(--lb-text);
+    }
+
+    .sidebar .sidebar-header {
+      background: linear-gradient(135deg, #47417c, #353070);
+      color: #f9f7ff;
     }
 
     // Bootstrap's .border-light utility is !important; without this override,
@@ -393,6 +534,7 @@
 
     #dashboard .listen-card .additional-content,
     #dashboard #listen-count-card hr,
+    #dashboard #compatibility-card hr,
     #dashboard .card-user-sn hr,
     #dashboard .follower-following-cards hr,
     #dashboard [data-testid="similar-users-modal"] hr {
@@ -504,6 +646,13 @@
       box-shadow: inset 0 10px 8px -10px rgb(0 0 0 / 60%);
     }
 
+    // The legacy follow list sets its own light divider on each row. Scope
+    // this to the dashboard lists so the separators stay quiet in dark mode.
+    #dashboard .follower-following-list > *:not(:first-child),
+    #dashboard .similar-users-list > *:not(:first-child) {
+      border-top-color: var(--lb-border);
+    }
+
     #dashboard .header-with-line::after {
       border-color: var(--lb-border-strong);
     }
@@ -581,9 +730,8 @@
     }
 
     // Fresh Releases uses the legacy generic sidebar, whose child gradient is
-    // intentionally light in the original design. Keep the product header
-    // purple, but make its filter groups proper dark panels instead of a pale
-    // wash that competes with the controls inside it.
+    // part of the page's visual hierarchy. Keep that subtle depth in dark
+    // mode, using charcoal stops rather than flattening every filter group.
     .sidebar.sidebar-fresh-releases {
       background-color: var(--lb-surface-raised);
       border: 1px solid var(--lb-border);
@@ -591,7 +739,7 @@
     }
 
     .sidebar.sidebar-fresh-releases > *:not(.sidebar-header) {
-      background: var(--lb-surface-raised);
+      background: linear-gradient(50deg, #29262f 0%, #1e1e1e 72%);
       color: var(--lb-text);
     }
 
@@ -742,6 +890,23 @@
       background-color: var(--lb-surface-raised);
       border-color: var(--lb-border);
       color: var(--lb-text);
+    }
+
+    // The picker renders a leading-zero span just before each numeric input.
+    // Its month input overlaps that span slightly, so it must stay transparent
+    // rather than inheriting the generic dark input background above.
+    .react-datetime-picker__inputGroup__input {
+      background: transparent !important;
+      color: var(--lb-text);
+      -webkit-text-fill-color: var(--lb-text);
+      z-index: 0;
+    }
+
+    .react-datetime-picker__inputGroup__leadingZero {
+      position: relative;
+      z-index: 1;
+      color: var(--lb-text) !important;
+      -webkit-text-fill-color: var(--lb-text);
     }
 
     .track-search-dropdown .selected,
@@ -1423,6 +1588,28 @@
       --music-player-background: linear-gradient(to bottom, #353070, #1e1e1e);
     }
 
+    // The donors page uses legacy heading and link colours, which were chosen
+    // for a white surface. Keep its heading rule and flair-help control on the
+    // same text, border, and link palette as the rest of the dark interface.
+    #donors {
+      .header-with-line {
+        color: var(--lb-text);
+
+        &::after {
+          border-color: var(--lb-border);
+        }
+      }
+
+      .btn-link {
+        color: var(--lb-accent);
+
+        &:hover,
+        &:focus-visible {
+          color: var(--lb-accent-hover);
+        }
+      }
+    }
+
     #homepage-container {
       background-color: var(--lb-surface);
 
@@ -1440,6 +1627,27 @@
       .homepage-information .info-column p,
       .homepage-information .info-column .info-link {
         color: #f5f3fa !important;
+      }
+
+      // Keep the primary sign-up action warm, while the sign-in action uses a
+      // quieter secondary treatment that belongs on the dark landing page.
+      .homepage-info .create-account-button,
+      .homepage-info .create-account-button:visited {
+        color: #1e1e1e !important;
+      }
+
+      .homepage-info .login-button,
+      .homepage-info .login-button:visited {
+        background: #3b3745;
+        border: 1px solid #5a5566;
+        color: #f5f3fa !important;
+      }
+
+      .homepage-info .login-button:hover,
+      .homepage-info .login-button:focus-visible {
+        background: #4a4662;
+        border-color: #afa6df;
+        color: #fff !important;
       }
 
       .number-count .number-count-group .number-count-digit {

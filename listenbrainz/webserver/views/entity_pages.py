@@ -6,7 +6,11 @@ from werkzeug.exceptions import BadRequest
 from listenbrainz.art.cover_art_generator import CoverArtGenerator
 from listenbrainz.db import popularity, similarity
 from listenbrainz.db.stats import get_entity_listener
-from listenbrainz.db.recording import load_recordings_from_mbids_with_redirects, load_release_groups_for_recordings
+from listenbrainz.db.recording import (
+    load_recordings_from_mbids,
+    load_recordings_from_mbids_with_redirects,
+    load_release_groups_for_recordings,
+)
 from listenbrainz.webserver import db_conn, ts_conn
 from listenbrainz.webserver.decorators import cache_public, web_listenstore_needed
 from listenbrainz.webserver.utils import number_readable
@@ -84,6 +88,75 @@ def get_cover_art_for_artist(release_groups):
         height=400,
         show_caption=False
     )
+
+
+def load_cached_recording(recording_mbid):
+    """Load one recording without resolving MusicBrainz redirects.
+
+    Development installations may deliberately run without a local MusicBrainz
+    database. The metadata cache contains enough information to render an
+    entity page in that setup; redirect resolution and related-entity lookups
+    remain unavailable until a MusicBrainz database is configured.
+    """
+    with ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
+        recordings = load_recordings_from_mbids(ts_curs, [recording_mbid])
+
+    recording = recordings.get(recording_mbid)
+    if recording is None:
+        return None
+
+    return {
+        "recording_mbid": recording_mbid,
+        "recording_name": recording["title"],
+        "length": recording["length"],
+        "artist_credit_id": recording["artist_credit_id"],
+        "artist_credit_name": recording["artist"],
+        "artist_credit_mbids": recording["artist_mbids"],
+        "release_name": recording["release"],
+        "release_mbid": recording["release_mbid"],
+        "caa_id": recording["caa_id"],
+        "caa_release_mbid": recording["caa_release_mbid"],
+        "artists": recording["artists"],
+        "tags": recording["tags"],
+        "original_recording_mbid": recording_mbid,
+        "canonical_recording_mbid": recording_mbid,
+    }
+
+
+def load_cached_top_recordings(artist_mbid, count):
+    """Build an artist's popular-recording payload from local cache data."""
+    popular_recordings = popularity.get_top_entity_for_artist(
+        ts_conn, "recording", artist_mbid, count
+    )
+    recording_mbids = [str(recording["recording_mbid"]) for recording in popular_recordings]
+    with ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
+        recordings = load_recordings_from_mbids(ts_curs, recording_mbids)
+
+    output = []
+    for popularity_data in popular_recordings:
+        recording_mbid = str(popularity_data["recording_mbid"])
+        recording = recordings.get(recording_mbid)
+        if recording is None:
+            continue
+
+        output.append({
+            "recording_mbid": recording_mbid,
+            "recording_name": recording["title"],
+            "length": recording["length"],
+            "artist_name": recording["artist"],
+            "artist_mbids": recording["artist_mbids"],
+            "release_name": recording["release"],
+            "release_mbid": recording["release_mbid"],
+            "caa_id": recording["caa_id"],
+            "caa_release_mbid": recording["caa_release_mbid"],
+            "artists": recording["artists"],
+            "tags": recording["tags"],
+            "total_listen_count": popularity_data["total_listen_count"],
+            "total_user_count": popularity_data["total_user_count"],
+            "release_color": {},
+        })
+
+    return output
 
 
 @release_bp.get('/<path:path>/')
@@ -168,28 +241,37 @@ def artist_entity(artist_mbid: str):
         "tag": artist_data[0].tag_data,
     }
 
-    popular_recordings = popularity.get_top_recordings_for_artist(db_conn, ts_conn, artist_mbid, 10)
+    if current_app.config["MB_DATABASE_URI"]:
+        popular_recordings = popularity.get_top_recordings_for_artist(db_conn, ts_conn, artist_mbid, 10)
+    else:
+        popular_recordings = load_cached_top_recordings(artist_mbid, 10)
 
-    try:
-        with psycopg2.connect(current_app.config["MB_DATABASE_URI"]) as mb_conn, \
-                mb_conn.cursor(cursor_factory=DictCursor) as mb_curs, \
-                ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
+    if current_app.config["MB_DATABASE_URI"]:
+        try:
+            with psycopg2.connect(current_app.config["MB_DATABASE_URI"]) as mb_conn, \
+                    mb_conn.cursor(cursor_factory=DictCursor) as mb_curs, \
+                    ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
 
-            similar_artists = similarity.get_artists(
-                mb_curs,
-                ts_curs,
-                [artist_mbid],
-                "session_based_days_7500_session_300_contribution_3_threshold_10_limit_100_filter_True_skip_30",
-                18
-            )
-    except IndexError:
+                similar_artists = similarity.get_artists(
+                    mb_curs,
+                    ts_curs,
+                    [artist_mbid],
+                    "session_based_days_7500_session_300_contribution_3_threshold_10_limit_100_filter_True_skip_30",
+                    18
+                )
+        except IndexError:
+            similar_artists = []
+    else:
         similar_artists = []
 
-    try:
-        top_release_group_color = popularity.get_top_release_groups_for_artist(
-            db_conn, ts_conn, artist_mbid, 1
-        )[0]["release_color"]
-    except IndexError:
+    if current_app.config["MB_DATABASE_URI"]:
+        try:
+            top_release_group_color = popularity.get_top_release_groups_for_artist(
+                db_conn, ts_conn, artist_mbid, 1
+            )[0]["release_color"]
+        except IndexError:
+            top_release_group_color = None
+    else:
         top_release_group_color = None
 
     try:
@@ -216,10 +298,13 @@ def artist_entity(artist_mbid: str):
             "listeners": []
         }
 
-    try:
-        cover_art = get_cover_art_for_artist(release_groups)
-    except Exception:
-        current_app.logger.error("Error generating cover art for artist:", exc_info=True)
+    if current_app.config["MB_DATABASE_URI"]:
+        try:
+            cover_art = get_cover_art_for_artist(release_groups)
+        except Exception:
+            current_app.logger.error("Error generating cover art for artist:", exc_info=True)
+            cover_art = None
+    else:
         cover_art = None
 
     data = {
@@ -387,41 +472,48 @@ def recording_entity(recording_mbid: str):
     if not is_valid_uuid(recording_mbid):
         return jsonify({"error": "Provided recording mbid is invalid: %s" % recording_mbid}), 400
 
-    mb_conn = psycopg2.connect(current_app.config["MB_DATABASE_URI"])
-    try:
-        with mb_conn.cursor(cursor_factory=DictCursor) as mb_curs, \
-                ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
-            recording_data = load_recordings_from_mbids_with_redirects(mb_curs, ts_curs, [recording_mbid])
-        if recording_data is None or len(recording_data) == 0 or recording_data[0].get("recording_mbid") is None:
-            return jsonify({"error": f"Recording {recording_mbid} not found in the metadata cache"}), 404
-
-        recording_data = recording_data[0]
-
+    if current_app.config["MB_DATABASE_URI"]:
+        mb_conn = psycopg2.connect(current_app.config["MB_DATABASE_URI"])
         try:
             with mb_conn.cursor(cursor_factory=DictCursor) as mb_curs, \
                     ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
-                similar_recordings = similarity.get_recordings(
-                    mb_curs,
-                    ts_curs,
-                    [recording_mbid],
-                    "session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000",
-                    18
-                )
-                similar_recording_mbids = [recording["recording_mbid"] for recording in similar_recordings]
-                similar_recordings_data = load_recordings_from_mbids_with_redirects(mb_curs, ts_curs, similar_recording_mbids)
-        except Exception:
-            current_app.logger.error("Error loading similar recordings:", exc_info=True)
-            similar_recordings_data = []
+                recording_data = load_recordings_from_mbids_with_redirects(mb_curs, ts_curs, [recording_mbid])
+            if recording_data is None or len(recording_data) == 0 or recording_data[0].get("recording_mbid") is None:
+                return jsonify({"error": f"Recording {recording_mbid} not found in the metadata cache"}), 404
 
-        try:
-            with mb_conn.cursor(cursor_factory=DictCursor) as mb_curs:
-                release_groups_data = load_release_groups_for_recordings(mb_curs, [recording_mbid])
-                release_groups_data = list(release_groups_data.values())
-        except Exception:
-            current_app.logger.error("Error loading release groups for recording:", exc_info=True)
-            release_groups_data = []
-    finally:
-        mb_conn.close()
+            recording_data = recording_data[0]
+
+            try:
+                with mb_conn.cursor(cursor_factory=DictCursor) as mb_curs, \
+                        ts_conn.connection.cursor(cursor_factory=DictCursor) as ts_curs:
+                    similar_recordings = similarity.get_recordings(
+                        mb_curs,
+                        ts_curs,
+                        [recording_mbid],
+                        "session_based_days_7500_session_300_contribution_5_threshold_15_limit_50_skip_30_top_n_listeners_1000",
+                        18
+                    )
+                    similar_recording_mbids = [recording["recording_mbid"] for recording in similar_recordings]
+                    similar_recordings_data = load_recordings_from_mbids_with_redirects(mb_curs, ts_curs, similar_recording_mbids)
+            except Exception:
+                current_app.logger.error("Error loading similar recordings:", exc_info=True)
+                similar_recordings_data = []
+
+            try:
+                with mb_conn.cursor(cursor_factory=DictCursor) as mb_curs:
+                    release_groups_data = load_release_groups_for_recordings(mb_curs, [recording_mbid])
+                    release_groups_data = list(release_groups_data.values())
+            except Exception:
+                current_app.logger.error("Error loading release groups for recording:", exc_info=True)
+                release_groups_data = []
+        finally:
+            mb_conn.close()
+    else:
+        recording_data = load_cached_recording(recording_mbid)
+        if recording_data is None:
+            return jsonify({"error": f"Recording {recording_mbid} not found in the metadata cache"}), 404
+        similar_recordings_data = []
+        release_groups_data = []
 
     release_group_mbids = [rg["mbid"] for rg in release_groups_data]
     try:

@@ -151,6 +151,30 @@ def fetch_data(prefix: str, user_id: int):
     return None
 
 
+def fetch_all_data(prefix: str) -> list[dict]:
+    """Retrieve all documents from the most recent database for ``prefix``.
+
+    This is useful for read-only, sitewide views backed by a CouchDB dataset.
+    Like :func:`fetch_data`, the newest database is preferred because datasets
+    are versioned by date in their database name.
+    """
+    databases = list_databases(prefix)
+    if not databases:
+        return []
+
+    response = requests.get(
+        f"{_get_database_url(databases[0])}/_all_docs",
+        params={"include_docs": True},
+    )
+    response.raise_for_status()
+
+    return [
+        row["doc"]
+        for row in response.json().get("rows", [])
+        if "doc" in row and not row["doc"].get("_deleted", False)
+    ]
+
+
 def fetch_exact_data(database: str, document_id: str):
     """ Retrieve data from couchdb for the exact given database and document id.
     Args:

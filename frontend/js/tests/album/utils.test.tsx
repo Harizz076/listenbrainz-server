@@ -73,6 +73,22 @@ describe("getStreamingServiceFromURL", () => {
 });
 
 describe("getRelIconLink", () => {
+  it("renders YouTube's white play triangle", () => {
+    render(getRelIconLink("youtube", "https://youtube.com/watch?v=test"));
+
+    expect(screen.getByTestId("youtube-brand-play-triangle")).toHaveAttribute(
+      "fill",
+      "#fff"
+    );
+  });
+
+  it("renders Tidal's monochrome logo for Tidal streaming links", () => {
+    render(getRelIconLink("streaming", "https://tidal.com/track/12345"));
+
+    expect(screen.getByTestId("tidal-brand-logo")).toBeInTheDocument();
+    expect(screen.getByTitle("Tidal")).toHaveClass("brand-tidal");
+  });
+
   it("names the streaming service in the link title", () => {
     // Before LB-1992 this read "streaming", which told the reader nothing
     // about where the icon led.

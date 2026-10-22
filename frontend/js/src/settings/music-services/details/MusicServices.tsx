@@ -22,6 +22,7 @@ import {
   EmailVerificationRequiredToastMessage,
 } from "../../../utils/emailVerification";
 import { dataSourcesInfo } from "../../brainzplayer/BrainzPlayerSettings";
+import YouTubeLogo from "../../../common/icons/YouTubeLogo";
 
 type MusicServicesLoaderData = {
   user_has_email: boolean;
@@ -1049,13 +1050,7 @@ export default function MusicServices() {
 
         <MusicServiceCard
           serviceId="youtube"
-          icon={
-            <FontAwesomeIcon
-              icon={dataSourcesInfo.youtube.icon}
-              className="service-icon"
-              color={dataSourcesInfo.youtube.color}
-            />
-          }
+          icon={<YouTubeLogo className="service-icon" aria-hidden="true" />}
           title="YouTube"
           isConnected
           collapsible={false}

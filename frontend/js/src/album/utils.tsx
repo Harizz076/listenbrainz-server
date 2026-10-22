@@ -25,6 +25,8 @@ import {
 } from "@fortawesome/free-brands-svg-icons";
 import { dataSourcesInfo } from "../settings/brainzplayer/BrainzPlayerSettings";
 import { faQobuz } from "../common/icons/faQobuz";
+import TidalLogo from "../common/icons/TidalLogo";
+import YouTubeLogo from "../common/icons/YouTubeLogo";
 
 export type SimilarArtist = {
   artist_mbid: string;
@@ -162,6 +164,7 @@ export function getRelIconLink(relName: string, relValue: string) {
   let icon;
   let color;
   let isYoutube = false;
+  let isTidal = false;
   // Falls back to the relationship name, which is all we had before.
   let title = relName;
   switch (relName) {
@@ -171,6 +174,7 @@ export function getRelIconLink(relName: string, relValue: string) {
       icon = service?.icon ?? faMusic;
       color = service?.color;
       title = service?.name ?? relName;
+      isTidal = service?.name === "Tidal";
       break;
     }
     case "lyrics":
@@ -237,21 +241,30 @@ export function getRelIconLink(relName: string, relValue: string) {
     // [poo emoji]
     style = { height: "26.7px", width: "auto" };
   }
+
+  let iconElement = (
+    <FontAwesomeIcon icon={icon} fixedWidth color={color} style={style} />
+  );
+  if (isYoutube) {
+    iconElement = (
+      <YouTubeLogo style={style} data-testid="youtube-brand-play" />
+    );
+  } else if (isTidal) {
+    iconElement = (
+      <TidalLogo data-testid="tidal-brand-logo" aria-hidden="true" />
+    );
+  }
+
   return (
     <a
       key={relName}
       href={relValue}
       title={title}
-      className="btn btn-icon btn-link"
+      className={`btn btn-icon btn-link${isTidal ? " brand-tidal" : ""}`}
       target="_blank"
       rel="noopener noreferrer"
     >
-      <FontAwesomeIcon
-        icon={icon}
-        fixedWidth={!isYoutube}
-        color={color}
-        style={style}
-      />
+      {iconElement}
     </a>
   );
 }

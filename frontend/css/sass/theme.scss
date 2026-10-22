@@ -14,6 +14,8 @@
     --lb-border-strong: #aaa49c;
     --lb-accent: #353070;
     --lb-accent-hover: #27235a;
+    --lb-link-visited: #963873;
+    --lb-link-visited-hover: #ba478f;
     --lb-focus: #635eb0;
     --lb-tooltip-bg: #fff;
     --lb-tooltip-text: #262626;
@@ -21,6 +23,21 @@
   }
 
   html[data-bs-theme="dark"] {
+    // Apple Music uses a black brand mark in the light theme. Keep the mark
+    // visible wherever it is rendered in the BrainzPlayer UI in dark mode.
+    svg[data-icon="apple"] {
+      color: #fff !important;
+    }
+
+    .btn-icon.brand-tidal {
+      color: #fff !important;
+    }
+
+    .text-muted svg[data-icon="apple"],
+    svg[data-icon="apple"].text-muted {
+      color: var(--lb-text-muted) !important;
+    }
+
     // Bootstrap colours cover all standard controls, tables, cards, modals and
     // dropdowns. Keep their contrast relationships close to the light theme.
     --lb-surface: #171717;
@@ -34,8 +51,10 @@
     --lb-text-muted: #b8b3c4;
     --lb-border: #3b3745;
     --lb-border-strong: #5a5566;
-    --lb-accent: #dcd6f0;
+    --lb-accent: #e1deeb;
     --lb-accent-hover: #fff;
+    --lb-link-visited: #afa2cf;
+    --lb-link-visited-hover: var(--lb-accent);
     --lb-focus: #afa6df;
     --lb-tooltip-bg: #252329;
     --lb-tooltip-text: #f5f3fa;
@@ -57,7 +76,7 @@
     --bs-heading-color: #f5f3fa;
     --bs-link-color: var(--lb-accent);
     --bs-link-hover-color: var(--lb-accent-hover);
-    --bs-link-color-rgb: 220, 214, 240;
+    --bs-link-color-rgb: 225, 222, 235;
     --bs-link-hover-color-rgb: 255, 255, 255;
     --bs-border-color: var(--lb-border);
     --bs-border-color-translucent: rgb(228 228 228 / 18%);
@@ -73,7 +92,9 @@
     --bs-dropdown-link-color: var(--lb-text);
     --bs-dropdown-link-hover-color: #fff;
     --bs-dropdown-link-hover-bg: #35323d;
-    --bs-dropdown-link-active-bg: #4a4662;
+    --bs-dropdown-link-active-color: #fff;
+    --bs-dropdown-link-active-bg: #35323d;
+    --bs-dropdown-link-disabled-color: #968fa1;
     --bs-table-color: var(--lb-text);
     --bs-table-bg: transparent;
     --bs-table-border-color: var(--lb-border);
@@ -109,6 +130,17 @@
     #react-container {
       background-color: var(--lb-surface);
       color: var(--lb-text);
+    }
+
+    // These selectors cover legacy links that retain the old Lobes visited
+    // rule; the Sass variables also make that rule consume these tokens.
+    a:visited:not(.btn):not(.pill):not(.dropdown-item) {
+      color: var(--lb-link-visited);
+    }
+
+    a:visited:not(.btn):not(.pill):not(.dropdown-item):hover,
+    a:visited:not(.btn):not(.pill):not(.dropdown-item):focus-visible {
+      color: var(--lb-link-visited-hover);
     }
 
     // Native controls and keyboard focus must remain unambiguous in the dark.
@@ -328,6 +360,164 @@
       color: var(--lb-text);
     }
 
+    // Highlight.js imports its light GitHub palette globally. The inspect
+    // listen modal is the only current use of it, so keep the override scoped
+    // here rather than changing highlighted content on light pages.
+    #ListenPayloadModal {
+      pre {
+        margin: 0;
+        background-color: transparent;
+        border: 0;
+      }
+
+      pre code.hljs {
+        display: block;
+        padding: 1rem;
+        background-color: transparent;
+        color: var(--lb-text);
+      }
+
+      .hljs-attr,
+      .hljs-property {
+        color: #d2a8ff;
+      }
+
+      .hljs-string,
+      .hljs-regexp {
+        color: #a5d6ff;
+      }
+
+      .hljs-number,
+      .hljs-literal {
+        color: #79c0ff;
+      }
+
+      .hljs-punctuation {
+        color: #aaa5b3;
+      }
+    }
+
+    // Bootstrap defines these custom properties on .dropdown-menu itself,
+    // which shadows root values. Keep all menu states on the same muted dark
+    // palette, including legacy menus rendered as anchors or buttons.
+    .dropdown-menu {
+      --bs-dropdown-bg: var(--lb-surface-raised);
+      --bs-dropdown-color: var(--lb-text);
+      --bs-dropdown-border-color: var(--lb-border);
+      --bs-dropdown-link-color: var(--lb-text);
+      --bs-dropdown-link-hover-color: #fff;
+      --bs-dropdown-link-hover-bg: #35323d;
+      --bs-dropdown-link-active-color: #fff;
+      --bs-dropdown-link-active-bg: #35323d;
+      --bs-dropdown-link-disabled-color: #968fa1;
+    }
+
+    .dropdown-menu .dropdown-item {
+      color: var(--lb-text);
+    }
+
+    .dropdown-menu .dropdown-item:hover,
+    .dropdown-menu .dropdown-item:focus {
+      background-color: #35323d;
+      color: #fff;
+    }
+
+    .dropdown-menu .dropdown-item.active,
+    .dropdown-menu .dropdown-item:active {
+      background-color: #35323d;
+      color: #fff;
+    }
+
+    .dropdown-menu .dropdown-item.disabled,
+    .dropdown-menu .dropdown-item:disabled {
+      color: #968fa1;
+      opacity: 1;
+    }
+
+    // Enabled actions need enough chroma to read as interactive on dark
+    // surfaces. Their former subdued colours are retained for disabled states.
+    .btn-primary,
+    .btn-secondary,
+    .btn-success,
+    .btn-info,
+    .btn-warning,
+    .btn-danger,
+    .btn-light,
+    .btn-dark {
+      --bs-btn-color: #f8f7fb;
+      --bs-btn-hover-color: #fff;
+      --bs-btn-active-color: #fff;
+      --bs-btn-disabled-color: #ded9e6;
+      --bs-btn-border-color: var(--bs-btn-bg);
+      --bs-btn-hover-border-color: var(--bs-btn-hover-bg);
+      --bs-btn-active-border-color: var(--bs-btn-active-bg);
+      --bs-btn-disabled-border-color: var(--bs-btn-disabled-bg);
+    }
+
+    .btn-primary {
+      --bs-btn-bg: #a85d43;
+      --bs-btn-hover-bg: #af6247;
+      --bs-btn-active-bg: #8e4d37;
+      --bs-btn-disabled-bg: #925f49;
+      --bs-btn-focus-shadow-rgb: 168, 93, 67;
+    }
+
+    .btn-secondary {
+      --bs-btn-bg: #645d71;
+      --bs-btn-hover-bg: #6c647b;
+      --bs-btn-active-bg: #514b5b;
+      --bs-btn-disabled-bg: #514d58;
+      --bs-btn-focus-shadow-rgb: 100, 93, 113;
+    }
+
+    .btn-success {
+      --bs-btn-bg: #478357;
+      --bs-btn-hover-bg: #488057;
+      --bs-btn-active-bg: #3b6d48;
+      --bs-btn-disabled-bg: #467454;
+      --bs-btn-focus-shadow-rgb: 71, 131, 87;
+    }
+
+    .btn-info {
+      --bs-btn-bg: #47417c;
+      --bs-btn-hover-bg: #514a89;
+      --bs-btn-active-bg: #393465;
+      --bs-btn-disabled-bg: #353070;
+      --bs-btn-focus-shadow-rgb: 71, 65, 124;
+    }
+
+    .btn-warning {
+      --bs-btn-bg: #967022;
+      --bs-btn-hover-bg: #9c6d17;
+      --bs-btn-active-bg: #7d5c1c;
+      --bs-btn-disabled-bg: #8a6a30;
+      --bs-btn-focus-shadow-rgb: 150, 112, 34;
+    }
+
+    .btn-danger {
+      --bs-btn-bg: #a5475a;
+      --bs-btn-hover-bg: #b85267;
+      --bs-btn-active-bg: #893a4a;
+      --bs-btn-disabled-bg: #914952;
+      --bs-btn-focus-shadow-rgb: 165, 71, 90;
+    }
+
+    .btn-light {
+      --bs-btn-bg: #60586b;
+      --bs-btn-hover-bg: #70677e;
+      --bs-btn-active-bg: #4d4757;
+      --bs-btn-disabled-bg: #504b5a;
+      --bs-btn-focus-shadow-rgb: 96, 88, 107;
+    }
+
+    .btn-dark {
+      --bs-btn-bg: #34303a;
+      --bs-btn-hover-bg: #443e4b;
+      --bs-btn-active-bg: #29262e;
+      --bs-btn-disabled-bg: #2c2931;
+      --bs-btn-focus-shadow-rgb: 52, 48, 58;
+    }
+
     .footer {
       border-top-color: var(--lb-border);
     }
@@ -377,15 +567,21 @@
         background-color: var(--lb-nav-bg);
       }
 
-      #side-nav a,
-      #side-nav a:visited {
+      #side-nav a {
         color: var(--lb-accent);
       }
 
+      #side-nav a:visited {
+        color: var(--lb-link-visited);
+      }
+
       #side-nav a:hover,
-      #side-nav a:visited:hover,
       #side-nav a.active {
         color: #fff;
+      }
+
+      #side-nav a:visited:hover {
+        color: var(--lb-link-visited-hover);
       }
 
       #side-nav .theme-toggle {
@@ -759,6 +955,25 @@
       color: var(--lb-text);
     }
 
+    // Match Fresh Releases' layered sidebar treatment in Art Creator. Its
+    // settings and advanced groups are separate panels, so a subtle charcoal
+    // gradient preserves that grouping without adding bright surfaces.
+    #stats-art-creator .sidebar.settings-navbar {
+      background-color: var(--lb-surface-raised);
+      border: 1px solid var(--lb-border);
+      box-shadow: var(--lb-shadow);
+    }
+
+    #stats-art-creator .sidebar.settings-navbar > *:not(.sidebar-header) {
+      background: linear-gradient(50deg, #29262f 0%, #1e1e1e 72%);
+      color: var(--lb-text);
+    }
+
+    #stats-art-creator .sidebar.settings-navbar label,
+    #stats-art-creator .sidebar.settings-navbar h4 {
+      color: var(--lb-text);
+    }
+
     // The shared switch predates Bootstrap form controls. Its original grey
     // thumb and near-black checked track disappear into dark panels, so give
     // both states distinct track and thumb values without changing its size.
@@ -814,11 +1029,20 @@
       color: var(--lb-text);
     }
 
-    .explore-card-text-name a,
-    .explore-card-text-name a:visited,
-    .explore-card-text-name a:hover,
-    .explore-card-text-name a:visited:hover {
+    .explore-card-text-name a {
       color: var(--lb-accent);
+    }
+
+    .explore-card-text-name a:hover {
+      color: var(--lb-accent-hover);
+    }
+
+    .explore-card-text-name a:visited {
+      color: var(--lb-link-visited);
+    }
+
+    .explore-card-text-name a:visited:hover {
+      color: var(--lb-link-visited-hover);
     }
 
     .explore-card-text > div:last-child {
@@ -933,26 +1157,6 @@
       box-shadow: none;
     }
 
-    // A native select popup cannot consistently honour its option colours.
-    // These controlled Fresh Releases menus keep the lighter purple surface
-    // and readable labels from the light-theme design.
-    .fresh-releases-select .dropdown-menu {
-      background-color: #3d3959;
-      border-color: #5d5875;
-      box-shadow: var(--lb-shadow);
-      color: #f1eef8;
-    }
-
-    .fresh-releases-select .dropdown-item {
-      color: #f1eef8;
-    }
-
-    .fresh-releases-select .dropdown-item:hover,
-    .fresh-releases-select .dropdown-item:focus {
-      background-color: #4d486b;
-      color: #fff;
-    }
-
     // Date headers divide the release grid rather than introduce another
     // surface. The raised background made each heading read as a dark-grey
     // bar, so keep it flush with the page and use the lavender accent from
@@ -1025,10 +1229,6 @@
       color: var(--lb-text);
     }
 
-    // `no-freshness.png` is credited artwork with its pale background and copy
-    // baked into the raster. Keep it intact in both themes until a licensed,
-    // purpose-built dark variant is available.
-
     .release-card-grid-title::before,
     .release-card-grid-title::after,
     .review .header-with-line::after {
@@ -1088,6 +1288,21 @@
       color: var(--lb-text) !important;
     }
 
+    // Music service cards render under Settings rather than User Profile, so
+    // their explanatory paragraphs need the same explicit foreground token.
+    #settings .services-grid .card-body,
+    #settings .services-grid .card-body > p {
+      color: var(--lb-text) !important;
+    }
+
+    // Bootstrap form labels inherit the legacy body colour rather than the
+    // raised settings card. Retoken the import form's labels and disclosure
+    // explicitly so they stay readable on its dark surface.
+    #settings .import-listens-form .form-label,
+    #settings .import-listens-form details > summary {
+      color: var(--lb-text);
+    }
+
     #user-profile .card-header {
       background-color: var(--lb-surface-raised);
       border-bottom-color: var(--lb-border);
@@ -1139,15 +1354,15 @@
     }
 
     .alert-info {
-      --bs-alert-bg: #073943;
-      --bs-alert-border-color: #0d8fa5;
-      --bs-alert-color: #c4f3fb;
+      --bs-alert-bg: #1f3337;
+      --bs-alert-border-color: #3d7780;
+      --bs-alert-color: #d3e5e7;
     }
 
     .alert-warning {
-      --bs-alert-bg: #423200;
-      --bs-alert-border-color: #a27b00;
-      --bs-alert-color: #ffe29a;
+      --bs-alert-bg: #35301c;
+      --bs-alert-border-color: #807431;
+      --bs-alert-color: #ebdfb8;
     }
 
     .alert-success {
@@ -1256,6 +1471,10 @@
 
     // Tags are a CreatableSelect with a custom value component. Assigning a
     // class prefix gives its otherwise generated styles stable dark hooks.
+    .tag .tag-vote-button {
+      border-left-color: var(--lb-border);
+    }
+
     .add-tag-select .tag-select__control,
     .add-tag-select .tag-select__control--is-focused,
     .add-tag-select .tag-select__control--is-disabled {
@@ -1319,33 +1538,20 @@
       background-color: var(--lb-surface-raised);
     }
 
-    .entity-page-header {
-      --bg-color: var(--lb-surface-muted);
+    // Entity headers receive a palette colour from their artwork. Preserve
+    // that cue in dark mode, but mix it into the page surface so bright cover
+    // art cannot reduce the contrast of the title and metadata.
+    #entity-page .entity-page-header {
+      background: linear-gradient(
+        45deg,
+        color-mix(in srgb, var(--bg-color) 36%, var(--lb-surface)) 0%,
+        color-mix(in srgb, var(--bg-color) 14%, var(--lb-surface)) 58%,
+        var(--lb-surface) 100%
+      );
     }
 
-    // Never invert or darken genuine cover art. These rules apply only when
-    // there is no cover art and the entity page would otherwise show the pale
-    // light-theme JPEG placeholder.
-    #entity-page .entity-cover-art-placeholder {
-      position: relative;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(135deg, #292535, #1c1b20);
-      border: 1px solid var(--lb-border);
-    }
-
-    #entity-page .entity-cover-art-placeholder > img {
-      visibility: hidden;
-    }
-
-    #entity-page .entity-cover-art-placeholder::after {
-      position: absolute;
-      inset: 0;
-      content: "";
-      background: url("/static/img/listenbrainz_logo_icon.svg") center / 32%
-        no-repeat;
-      opacity: 0.9;
-      pointer-events: none;
+    #entity-page .entity-page-header .form-text {
+      color: #d4cfde;
     }
 
     #entity-page .header-with-line::after,
@@ -1567,8 +1773,23 @@
       }
 
       .progress .progress-bar {
-        background-color: #615b85;
-        border-right-color: #8078aa;
+        background-color: #8178ae;
+        border-right-color: #afa6df;
+      }
+
+      .progress .progress-handle {
+        background-color: #afa6df;
+        border: 2px solid var(--lb-surface-raised);
+      }
+
+      .progress:focus-visible {
+        outline: 2px solid var(--lb-focus);
+        outline-offset: 3px;
+      }
+
+      .progress-tooltip {
+        --bs-tooltip-bg: #3b3745;
+        --bs-tooltip-color: #f5f3fa;
       }
     }
 
@@ -1582,10 +1803,78 @@
       .queue-headers {
         border-color: var(--lb-border);
       }
+
+      // Bootstrap's secondary utility and the legacy ListenCard control
+      // colours are too dim against the queue surface. Keep queue metadata
+      // and all resting track actions on one readable neutral tone.
+      .queue-headers .text-secondary,
+      .queue-item-card .title-duration > .text-muted {
+        color: #d4cfde !important;
+      }
+
+      .queue-item-card .drag-handle,
+      .queue-item-card .listen-controls,
+      .queue-item-card .listen-controls > .icon-only,
+      .queue-item-card .play-button {
+        color: var(--lb-text-muted);
+      }
+
+      .queue-item-card .listen-controls > .love:not(.loved),
+      .queue-item-card .listen-controls > .hate:not(.hated) {
+        stroke: var(--lb-text-muted);
+      }
+
+      .queue-item-card .listen-controls > button:not(.love):not(.hate):hover,
+      .queue-item-card .listen-controls > .btn:not(.love):not(.hate):hover,
+      .queue-item-card .play-button:hover {
+        color: #fff;
+      }
+
+      .queue-item-card .listen-controls > .love:not(.loved):hover {
+        stroke: #ef7480;
+      }
+
+      .queue-item-card .listen-controls > .hate:not(.hated):hover {
+        stroke: #a99cec;
+      }
     }
 
     .music-player {
       --music-player-background: linear-gradient(to bottom, #353070, #1e1e1e);
+    }
+
+    // Donation views use a light glass treatment and hard-coded grey pills in
+    // the light theme. Rebuild those surfaces from the dark palette while
+    // keeping the page's purple character and the semantic donate actions.
+    #donations-page {
+      background: linear-gradient(288deg, #201e25 16.96%, #302b4a 98.91%);
+      color: var(--lb-text);
+
+      .donations-page-header {
+        color: #f5f3fa;
+      }
+
+      .donations-page-footer {
+        color: var(--lb-text);
+      }
+
+      .grey-wedge {
+        background: #211f26;
+      }
+
+      .blob {
+        opacity: 45%;
+      }
+    }
+
+    #donations-tiers .tier {
+      background: rgb(37 35 43 / 92%);
+      border-color: #504a5c;
+      box-shadow: var(--lb-shadow);
+
+      &:hover {
+        background: #2c2933;
+      }
     }
 
     // The donors page uses legacy heading and link colours, which were chosen
@@ -1608,6 +1897,59 @@
           color: var(--lb-accent-hover);
         }
       }
+
+      .donations-page-header {
+        background: linear-gradient(288deg, #26232e 16.96%, #403961 98.91%);
+        border: 1px solid var(--lb-border);
+        opacity: 1;
+
+        .donation-header-text {
+          color: #f5f3fa;
+        }
+
+        a:not(.btn),
+        a:not(.btn):visited {
+          color: #f5f3fa;
+        }
+      }
+
+      .donor-card {
+        background: var(--lb-surface-raised);
+        border-color: var(--lb-border);
+
+        &:hover {
+          background: var(--lb-card-hover);
+        }
+
+        .donation-date,
+        .recent-listens .listen-item,
+        .recent-listens .listen-item:visited {
+          color: var(--lb-text-muted) !important;
+        }
+
+        .recent-listens .listen-item {
+          background-color: var(--lb-surface-muted);
+
+          &:hover,
+          &:focus-visible {
+            background-color: #35323d;
+            color: #fff !important;
+          }
+        }
+      }
+
+      .recent-donor-card .donor-pinned-recording {
+        background: var(--lb-surface-muted);
+        border: 1px solid var(--lb-border);
+
+        .text {
+          color: var(--lb-text-muted);
+        }
+
+        svg {
+          color: var(--lb-accent);
+        }
+      }
     }
 
     #homepage-container {
@@ -1619,10 +1961,21 @@
         background-color: var(--lb-surface-raised);
       }
 
+      .homepage-upper,
+      .homepage-lower {
+        color: #f5f3fa;
+      }
+
       .homepage-upper .homepage-info,
       .homepage-upper .homepage-info a:visited,
       .homepage-upper .homepage-info h1,
-      .homepage-lower .listen-container,
+      .homepage-lower .homepage-info,
+      .homepage-lower .homepage-info a:visited,
+      .homepage-lower .homepage-info h1,
+      .homepage-lower .listen-container {
+        color: inherit !important;
+      }
+
       .homepage-information .info-column h2,
       .homepage-information .info-column p,
       .homepage-information .info-column .info-link {

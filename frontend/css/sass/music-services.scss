@@ -35,7 +35,8 @@ $checkbox-size: 40px;
       background-color: var(--bs-card-cap-bg);
     }
 
-    .accordion-button {
+    .accordion-button,
+    .card-header {
       border-radius: inherit;
       display: flex;
       padding: 1.5rem 1.5rem;
@@ -45,16 +46,6 @@ $checkbox-size: 40px;
       color: inherit;
       background-color: transparent;
       min-height: 100px;
-
-      &:hover {
-        cursor: pointer;
-        .service-logo {
-          transform: scale(1.1);
-        }
-        .status-dot {
-          transform: scale(1.2);
-        }
-      }
 
       .service-logo {
         display: flex;
@@ -96,6 +87,18 @@ $checkbox-size: 40px;
             background-color: #dc3545;
           }
         }
+      }
+    }
+
+    .accordion-button:hover {
+      cursor: pointer;
+
+      .service-logo {
+        transform: scale(1.1);
+      }
+
+      .status-dot {
+        transform: scale(1.2);
       }
     }
   }

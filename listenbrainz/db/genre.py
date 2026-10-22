@@ -35,6 +35,13 @@ def load_genre_with_subgenres(mb_curs: DictCursor):
 def get_tag_hierarchy_data():
     data = cache.get(TAG_HEIRARCHY_CACHE_KEY)
     if not data:
+        # A local ListenBrainz setup normally does not include a full
+        # MusicBrainz database.  The hierarchy only enriches the genre graph,
+        # so an unavailable optional database must not make Year in Music
+        # unavailable altogether.
+        if not current_app.config["MB_DATABASE_URI"]:
+            return []
+
         with (
             psycopg2.connect(current_app.config["MB_DATABASE_URI"]) as mb_conn,
             mb_conn.cursor(cursor_factory=DictCursor) as mb_curs

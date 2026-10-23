@@ -45,7 +45,7 @@ export const dataSourcesInfo = {
   appleMusic: {
     name: "Apple Music",
     icon: faApple,
-    color: "#000000",
+    color: "var(--lb-brand-apple)",
   },
   internetArchive: {
     name: "Internet Archive",
